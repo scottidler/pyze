@@ -21,7 +21,7 @@ struct Cli {
     #[clap(required = true, help = "Python Script")]
     script: PathBuf,
 
-    #[clap(last = true, help = "Optional list of args")]
+    #[clap(help = "Optional list of args")]
     args: Vec<String>,
 }
 
@@ -62,7 +62,40 @@ async fn parse_python_file(script: &PathBuf) -> Result<Vec<PythonImport>> {
 }
 
 fn get_python_builtins_stdlibs() -> Result<Vec<String>> {
-    let output = Command::new("python3").arg("libs.py").output()?;
+    // Python code as a Rust string
+    let python_code = r#"
+import sys
+
+# Get built-in modules
+builtin_modules = set(sys.builtin_module_names)
+
+# Get standard library modules
+standard_lib_modules = set(sys.stdlib_module_names)
+
+# Combine both
+all_default_modules = builtin_modules.union(standard_lib_modules)
+
+# Assuming all_default_modules is your original set of modules
+filtered_modules = {module for module in all_default_modules if not module.startswith('_')}
+
+for module in sorted(filtered_modules):
+    print(module)
+"#;
+
+    // Execute the Python code and capture the output
+    let output = Command::new("python3")
+        .arg("-c")
+        .arg(python_code)
+        .output()
+        .expect("Failed to execute command");
+
+    if !output.status.success() {
+        return Err(eyre::eyre!(
+            "Command execution failed with error: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
     let output_str = std::str::from_utf8(&output.stdout)?;
     Ok(output_str.lines().map(|s| s.to_string()).collect())
 }
@@ -82,7 +115,8 @@ async fn generate_dockerfile(
     output_dir: &Path,
 ) -> Result<()> {
     // Read the Dockerfile.template into a String
-    let default_template = r#"FROM python:{{PYTHON_VERSION}}
+    let default_template = r#"
+FROM python:{{PYTHON_VERSION}}
 
 RUN useradd -ms /bin/bash dock
 USER dock
@@ -152,8 +186,6 @@ async fn main() -> Result<()> {
         .ok_or(eyre!("Failed to get file name"))?
         .to_str()
         .ok_or(eyre!("Failed to convert to str"))?;
-    //generate_dockerfile(python_version, &modules, script_name).await?;
-    //let script_path = cli.script.parent().ok_or_else(|| eyre!("Failed to get parent directory of script"))?;
 
     let script_path = cli.script.parent().ok_or(eyre!("Failed to get parent directory"))?;
 
