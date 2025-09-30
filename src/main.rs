@@ -14,7 +14,7 @@ use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[derive(Parser, Debug)]
-#[clap(name = "dock", about = "Dockerize any Python script")]
+#[clap(name = "dock", version = env!("GIT_DESCRIBE"), about = "Dockerize any Python script")]
 struct Cli {
     #[clap(required = true, help = "Python Script")]
     script: PathBuf,
