@@ -1,7 +1,4 @@
-#![cfg_attr(
-    debug_assertions,
-    allow(unused_imports, unused_variables, unused_mut, dead_code)
-)]
+#![cfg_attr(debug_assertions, allow(unused_imports, unused_variables, unused_mut, dead_code))]
 
 // Standard library imports
 use std::path::{Path, PathBuf};
@@ -55,10 +52,7 @@ async fn load_config() -> Result<Config> {
     }
 }
 
-fn remap_modules(
-    modules: &[String],
-    mappings: &Option<std::collections::HashMap<String, String>>,
-) -> Vec<String> {
+fn remap_modules(modules: &[String], mappings: &Option<std::collections::HashMap<String, String>>) -> Vec<String> {
     modules
         .iter()
         .map(|module| {
@@ -246,8 +240,7 @@ async fn main() -> Result<()> {
     modules.dedup();
 
     // Remap modules using the import_mappings from the config
-    let remapped_modules =
-        remap_modules(&modules, &config.defaults.and_then(|d| d.import_mappings));
+    let remapped_modules = remap_modules(&modules, &config.defaults.and_then(|d| d.import_mappings));
     let python_version = "3.10";
     let script_name = cli
         .script
@@ -256,10 +249,7 @@ async fn main() -> Result<()> {
         .to_str()
         .ok_or(eyre!("Failed to convert to str"))?;
 
-    let script_path = cli
-        .script
-        .parent()
-        .ok_or(eyre!("Failed to get parent directory"))?;
+    let script_path = cli.script.parent().ok_or(eyre!("Failed to get parent directory"))?;
 
     generate_dockerfile(python_version, &remapped_modules, script_name, script_path).await?;
 
@@ -269,9 +259,7 @@ async fn main() -> Result<()> {
             "build",
             "-t",
             script_name,
-            script_path
-                .to_str()
-                .ok_or(eyre!("Failed to convert path to str"))?,
+            script_path.to_str().ok_or(eyre!("Failed to convert path to str"))?,
         ])
         .status()
         .wrap_err("Failed to build Docker image")?;
