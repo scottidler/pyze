@@ -1,4 +1,7 @@
-#![cfg_attr(debug_assertions, allow(unused_imports, unused_variables, unused_mut, dead_code))]
+#![cfg_attr(
+    debug_assertions,
+    allow(unused_imports, unused_variables, unused_mut, dead_code)
+)]
 
 // Standard library imports
 use std::path::{Path, PathBuf};
@@ -8,7 +11,6 @@ use std::process::Command;
 use clap::Parser;
 use eyre::WrapErr;
 use eyre::{eyre, Result};
-use reqwest;
 use serde::{Deserialize, Serialize};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -53,7 +55,10 @@ async fn load_config() -> Result<Config> {
     }
 }
 
-fn remap_modules(modules: &[String], mappings: &Option<std::collections::HashMap<String, String>>) -> Vec<String> {
+fn remap_modules(
+    modules: &[String],
+    mappings: &Option<std::collections::HashMap<String, String>>,
+) -> Vec<String> {
     modules
         .iter()
         .map(|module| {
@@ -75,10 +80,10 @@ async fn parse_python_file(script: &PathBuf) -> Result<Vec<PythonImport>> {
         .lines()
         .filter_map(|line| {
             let trimmed_line = line.trim();
-            if trimmed_line.starts_with("import ") {
-                Some(PythonImport::ModuleOnly(trimmed_line[7..].trim().to_string()))
-            } else if trimmed_line.starts_with("from ") {
-                let parts: Vec<&str> = trimmed_line[5..].split(" import ").collect();
+            if let Some(rest) = trimmed_line.strip_prefix("import ") {
+                Some(PythonImport::ModuleOnly(rest.trim().to_string()))
+            } else if let Some(rest) = trimmed_line.strip_prefix("from ") {
+                let parts: Vec<&str> = rest.split(" import ").collect();
                 if parts.len() == 2 {
                     Some(PythonImport::ModuleWithMember(
                         parts[0].trim().to_string(),
@@ -225,7 +230,7 @@ async fn main() -> Result<()> {
             }
             PythonImport::ModuleWithMember(module, object) => {
                 if !builtin_stdlibs.contains(&module) {
-                    let full_name = format!("{}.{}", &module, &object);
+                    let full_name = format!("{}.{}", module, object);
                     if let Some(valid_module) = check_package_exists(&full_name).await {
                         modules.push(valid_module);
                     } else if let Some(valid_module) = check_package_exists(&module).await {
@@ -241,7 +246,8 @@ async fn main() -> Result<()> {
     modules.dedup();
 
     // Remap modules using the import_mappings from the config
-    let remapped_modules = remap_modules(&modules, &config.defaults.and_then(|d| d.import_mappings));
+    let remapped_modules =
+        remap_modules(&modules, &config.defaults.and_then(|d| d.import_mappings));
     let python_version = "3.10";
     let script_name = cli
         .script
@@ -250,23 +256,28 @@ async fn main() -> Result<()> {
         .to_str()
         .ok_or(eyre!("Failed to convert to str"))?;
 
-    let script_path = cli.script.parent().ok_or(eyre!("Failed to get parent directory"))?;
+    let script_path = cli
+        .script
+        .parent()
+        .ok_or(eyre!("Failed to get parent directory"))?;
 
-    generate_dockerfile(python_version, &remapped_modules, script_name, &script_path).await?;
+    generate_dockerfile(python_version, &remapped_modules, script_name, script_path).await?;
 
     Command::new("docker")
         .env("DOCKER_BUILDKIT", "1")
-        .args(&[
+        .args([
             "build",
             "-t",
             script_name,
-            script_path.to_str().ok_or(eyre!("Failed to convert path to str"))?,
+            script_path
+                .to_str()
+                .ok_or(eyre!("Failed to convert path to str"))?,
         ])
         .status()
         .wrap_err("Failed to build Docker image")?;
 
     Command::new("docker")
-        .args(&["run", script_name])
+        .args(["run", script_name])
         .args(&cli.args)
         .status()
         .wrap_err("Failed to run Docker container")?;
