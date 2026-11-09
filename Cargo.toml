@@ -20,3 +20,6 @@ tokio = { version = "1.32.0", features = ["full"] }
 [[bin]]
 name = "pyze"
 path = "src/main.rs"
+
+[build-dependencies]
+build-version = { git = "https://github.com/tatari-tv/build-version-rs", tag = "v0.1.0", version = "0.1.0" }
